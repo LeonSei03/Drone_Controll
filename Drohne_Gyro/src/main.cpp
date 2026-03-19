@@ -1,18 +1,23 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <Adafruit_MPU6050.h>
+// #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
+#include <Adafruit_ICM20948.h>
+#include <Adafruit_ICM20X.h>
 
 const int PIN_SDA = 33;
 const int PIN_SCL = 32;
 
 // MPU Objekt anlegen
-Adafruit_MPU6050 mpu;
+//Adafruit_MPU6050 mpu;
+// ICM Objekt anlegen
+Adafruit_ICM20948 icm;
 
 // Sensor Variablen festlegen
 sensors_event_t accel;
 sensors_event_t gyro;
 sensors_event_t temp;
+sensors_event_t mag;
 
 // globale Variablen
 float gyro_offset_x = 0;
@@ -34,7 +39,7 @@ void setup() {
   // Kurz warten nach dem Start
   delay(100);
 
-  Serial.println("Starte MPU6050 Test:");
+  Serial.println("Starte ICM 20948 Test:");
 
   // I2C Bus starten
   Wire.begin(PIN_SDA, PIN_SCL);
@@ -43,14 +48,17 @@ void setup() {
   Wire.setClock(10000);
 
   // Sensor suchen 
-  if (!mpu.begin()){ // mpu.begin_I2C sucht uns den Sensor über den I2C Bus
-    Serial.println("Fehler: MPU-6050 nicht gefunden!");
+  if (!icm.begin_I2C(0x69, &Wire)){ // mpu.begin_I2C sucht uns den Sensor über den I2C Bus
+    Serial.println("Fehler: ICM 20948 auf 0x69 nicht gefunden! Es wird 0x68 getestet");
   
-    while(true){
-      delay(100);
+    if(!icm.begin_I2C(0x68, &Wire)){
+      Serial.println("Fehler: ICM 20948 auf 0x68 nicht gefunden!");
+      while(true){
+        delay(100);
     }
+  }
   } else {
-    Serial.println("MPU-6050 gefunden!");
+    Serial.println("ICM 20948 gefunden!");
     Serial.println("Sensorwerte werden ausgelesen...");
   }
 
@@ -60,11 +68,11 @@ void setup() {
   double sum_accel_z = 0;
   int counter_accel = 0;
 
-  Serial.println("MPU Beschleunigungssensor wird Kalibriert, bitte nicht bewegen!");
+  Serial.println("ICM Beschleunigungssensor wird Kalibriert, bitte nicht bewegen!");
 
   // Schleife um den Durchschnitt der Beschleunigungen im Ausgangszustand zu berechnen um zu schauen ob wir im richtigen Bereich liegen
   for(int i = 0; i < 500; i++) {
-    mpu.getEvent(&accel, &gyro, &temp);
+    icm.getEvent(&accel, &gyro, &temp, &mag);
 
     sum_accel_x += accel.acceleration.x;
     sum_accel_y += accel.acceleration.y;
@@ -91,11 +99,11 @@ void setup() {
   double sum_gyro_z = 0;
   int counter = 0;
 
-  Serial.println("MPU Gyro wird Kalibriert, bitte nicht bewegen!");
+  Serial.println("ICM Gyro wird Kalibriert, bitte nicht bewegen!");
 
   // Gyro Offset Kalibrierung -> Hier sammeln wir die ersten 1500 Werte, mitteln diese und ziehen sie nachher von den neu gemessenen Werten ab.
   for(int i = 0; i < 1500; i++) {
-    mpu.getEvent(&accel, &gyro, &temp);
+    icm.getEvent(&accel, &gyro, &temp, &mag);
 
     sum_gyro_x += gyro.gyro.x;
     sum_gyro_y += gyro.gyro.y;
@@ -115,7 +123,7 @@ void setup() {
 
 void loop() {
   // aktuelle Sensorwerte holen und in die Datenbehälter reinschreiben
-  mpu.getEvent(&accel, &gyro, &temp);
+  icm.getEvent(&accel, &gyro, &temp, &mag);
 
   // Temperatur ausgeben
   // Serial.print(" Temp: ");
@@ -150,8 +158,8 @@ void loop() {
 
   // Bei jeder iteration an Messungen auch den Betrag ausgeben
   double accel_betrag = sqrt((accel.acceleration.x * accel.acceleration.x) + (accel.acceleration.y * accel.acceleration.y) + (accel.acceleration.z * accel.acceleration.z));
-  // Serial.print("Betrag der Beschleunigung: ");
-  // Serial.print(accel_betrag);
+  Serial.print(" | Betrag Accel ");
+  Serial.print(accel_betrag);
   Serial.print(" | ");
 
   // Gyro Werte ausgeben (Einheit in rad/s)
