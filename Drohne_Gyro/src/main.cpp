@@ -32,6 +32,13 @@ double accel_offset_x = 0;
 double accel_offset_y = 0;
 double accel_offset_z = 0;
 
+// Variable für die Berechnung der vergangenen Zeit von der letzen Messung
+unsigned long last_time = 0; 
+
+// Variablen für Winkelberechnung über die Winkelgeschwindigkeit
+double roll_gyro = 0;
+double pitch_gyro = 0;
+
 void setup() {
   // Startet die Serielle Verbindung zum PC mit einer Baudrate von 115200 -> auch im Serial Monitor einstellen
   Serial.begin(115200);
@@ -119,6 +126,7 @@ void setup() {
   gyro_offset_z = sum_gyro_z / counter;
 
   Serial.println("Kalibrierung ist fertig!");
+  last_time = micros();
 }
 
 void loop() {
@@ -133,19 +141,19 @@ void loop() {
   // Pitch des Sensors berechnen 
   // Beim Pitch wird um die y-Achse des Sensors gedreht, dh Erdbeschleunigung teilt sich auf z- und x-Achse auf
   double pitch_rad = atan2(accel.acceleration.x, sqrt(accel.acceleration.y * accel.acceleration.y + accel.acceleration.z * accel.acceleration.z));
-  double pitch_deg = pitch_rad * 180 / PI; 
+  double pitch_deg_accel = pitch_rad * 180 / PI; 
 
   // Roll des Sensors berechnen
   // Beim Roll dreht/rollt der Sensor quasi um die x-Achse
   double roll_rad = atan2(accel.acceleration.y, accel.acceleration.z);
-  double roll_deg = roll_rad * 180 / PI; 
+  double roll_deg_accel = roll_rad * 180 / PI; 
 
   // Roll und Pitch ausgeben
-  Serial.print("Pitch (Drehung um y-Achse): ");
-  Serial.print(pitch_deg);
+  // Serial.print(" Pitch (Drehung um y-Achse): ");
+  // Serial.print(pitch_deg_accel);
 
-  Serial.print(" | Roll (Drehung um x-Achse): ");
-  Serial.print(roll_deg);
+  // Serial.print(" | Roll (Drehung um x-Achse): ");
+  // Serial.print(roll_deg_accel);
 
   // Beschleunigung ausgeben
   // Serial.print(" | Accel x: ");
@@ -160,19 +168,44 @@ void loop() {
   double accel_betrag = sqrt((accel.acceleration.x * accel.acceleration.x) + (accel.acceleration.y * accel.acceleration.y) + (accel.acceleration.z * accel.acceleration.z));
   Serial.print(" | Betrag Accel ");
   Serial.print(accel_betrag);
-  Serial.print(" | ");
 
   // Gyro Werte ausgeben (Einheit in rad/s)
   gyro_x = gyro.gyro.x - gyro_offset_x;
   gyro_y = gyro.gyro.y - gyro_offset_y;
   gyro_z = gyro.gyro.z - gyro_offset_z;
 
-  Serial.print(" Gyro x: ");
-  Serial.print(gyro_x);
-  Serial.print(" | y: ");
-  Serial.print(gyro_y);
-  Serial.print(" | z: ");
-  Serial.println(gyro_z);
+  // Zeit seit start des Programms
+  unsigned long current_time = micros();
+  double dt = (current_time - last_time) / 1000000.0;
+  last_time = current_time; 
 
-  delay(500);
+  // Winkel berechnen über die Winkelgeschwindigkeit
+  roll_gyro += gyro_x * dt * 180 / PI;
+  pitch_gyro += gyro_y * dt * 180 / PI; 
+
+  // Serial.print(" | Roll über Gyro: ");
+  // Serial.print(roll_gyro);
+  // Serial.print(" | Pitch über Gyro: ");
+  // Serial.println(pitch_gyro);
+
+  // Serial.print(" Gyro x: ");
+  // Serial.print(gyro_x);
+  // Serial.print(" | y: ");
+  // Serial.print(gyro_y);
+  // Serial.print(" | z: ");
+  // Serial.println(gyro_z);
+
+  // Fusion der Winkel vom Gyro und vom Accel
+  // zu diesen Anteil fließt der Winkel vom gyro ein
+  double alpha = 0.98;  
+  
+  double roll_angle_fusion = alpha * roll_gyro + (1 - alpha) * roll_deg_accel;
+  double pitch_angle_fusion = alpha * pitch_gyro + (1 - alpha) * pitch_deg_accel;
+
+  Serial.print(" | Fusion Roll (um x-Achse): ");
+  Serial.print(roll_angle_fusion);
+  Serial.print(" | Fusion Pitch (um y-Achse): ");
+  Serial.println(pitch_angle_fusion);
+
+  delay(5);
 }
