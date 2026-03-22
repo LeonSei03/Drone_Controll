@@ -5,8 +5,8 @@
 #include <Adafruit_ICM20948.h>
 #include <Adafruit_ICM20X.h>
 
-const int PIN_SDA = 33;
-const int PIN_SCL = 32;
+const int PIN_SDA = 18;
+const int PIN_SCL = 19;
 
 // MPU Objekt anlegen
 //Adafruit_MPU6050 mpu;
